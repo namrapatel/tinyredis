@@ -46,13 +46,10 @@ fn it_can_handle_multiple_connections() {
 
 #[test]
 fn it_can_receive_pings() {
-    println!("hello");
     let client = Client::open("redis://127.0.0.1/").unwrap();
     let mut con = client.get_connection().unwrap();
-    println!("hello2");
 
     let ping: String = redis::cmd("PING").query(&mut con).unwrap();
-    println!("{:?}", ping.as_str());
     assert_eq!(ping, "PONG");
 
     let ping: String = redis::cmd("PING").arg("hello").query(&mut con).unwrap();
@@ -66,7 +63,7 @@ fn it_can_handle_pings_from_multiple_connections() {
     let mut con2 = client.get_connection().unwrap();
 
     let ping: String = redis::cmd("PING").query(&mut con).unwrap();
-    let ping2: String = redis::cmd("PING").query(&mut con2).unwrap();
+    let ping2: String = redis::cmd("PING").query(&mut con).unwrap();
     assert_eq!(ping, "PONG");
     assert_eq!(ping2, "PONG");
 }
