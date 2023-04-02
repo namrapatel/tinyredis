@@ -10,7 +10,7 @@ static mut PROC: Option<std::process::Child> = None;
 
 #[ctor::ctor]
 fn start_server() {
-    let mut cmd = Command::cargo_bin("lil_redis").unwrap();
+    let mut cmd = Command::cargo_bin("tinyredis").unwrap();
     unsafe {
         PROC = Some(cmd.stdout(Stdio::null()).spawn().unwrap());
     }
