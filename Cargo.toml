@@ -3,7 +3,7 @@ license = "MIT"
 version = "0.0.1"
 name = "tinyredis"
 authors = ["Namra Patel"]
-description = "A minimal implementation of Redis in Rust."
+edition = "2021"
 
 [dependencies]
 anyhow = "1.0.59"
