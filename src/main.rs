@@ -1,21 +1,22 @@
 use std::{net::{TcpListener, TcpStream}, io::{Read,Write}};
+use std::str;
 
-const MESSAGE_SIZE: usize = 1024;
+const MESSAGE_SIZE: usize = 512;
 
 fn handle_connection(mut stream: TcpStream) {
-    loop {
-        println!("hello");
-        let mut buffer = [0; MESSAGE_SIZE];
-        let read_data = stream.read(&mut buffer);
+    println!("Handle connection called");
+    let mut buffer = [0; MESSAGE_SIZE];
+    _ = stream.read(&mut buffer);
+    let message =  str::from_utf8(&buffer).unwrap();
 
-        println!("Received: {:?}", buffer);
+    println!("{}", {message});
+    let string = "+PONG\r\n";
+    let reply = str::as_bytes(&string);
+    _ = stream.write(&reply);
 
-        stream.write_all(b"Hello from Rust!\n").unwrap();
-    }
 }
 
 fn main() -> std::io::Result<()> {
-    println!("here");
     let listener = TcpListener::bind("127.0.0.1:6379")?;
 
     for stream in listener.incoming() {
