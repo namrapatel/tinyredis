@@ -10,7 +10,7 @@ pub struct Server {
 
 impl Server {
 
-    async fn run() -> Result<()> {
+    pub async fn run() -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:6379").await?;
 
         loop {
