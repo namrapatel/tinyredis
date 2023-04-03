@@ -39,14 +39,13 @@ impl Server {
                 println!("Closing connection.");
                 break;
             }
-
-            println!("Buffer contents: {:?}", String::from_utf8_lossy(&buffer));
+            // println!("Buffer contents: {:?}", String::from_utf8_lossy(&buffer));
 
             let (message, _) = RESPMessage::deserialize(&buffer);
-            println!("Message recieved: {:?}", {message.clone()});
-            println!("MADE IT");
+            // println!("Message recieved: {:?}", {message.clone()});
+
             let (command, args) = message.to_command()?;
-            println!("Here is the command: {}", {command.clone()});
+            // println!("Here is the command: {}", {command.clone()});
             let response = match command.to_ascii_lowercase().as_ref() {
                 "ping" => {
                     RESPMessage::SimpleString("PONG".to_string())

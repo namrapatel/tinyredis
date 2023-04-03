@@ -13,7 +13,7 @@ pub enum RESPMessage {
     Null
 }
 
-fn start_to_cflf(bytes: &[u8]) -> usize {
+fn start_to_crlf(bytes: &[u8]) -> usize {
     let mut index = 0;
     for byte in bytes {
         if *byte == b'\r' {
@@ -87,65 +87,62 @@ impl RESPMessage {
     pub fn deserialize(bytes: &[u8]) -> (Self, usize) {
         match bytes[0] {
             b'+' => {
-                let len: usize = start_to_cflf(&bytes[1..]);
+                let len: usize = start_to_crlf(&bytes[1..]);
                 return (
                     Self::SimpleString(str::from_utf8(&bytes[1..len]).unwrap().to_string()),
                     len + 3, // +3 for the CRLF and the + 
                 );
             },
             b'-' => {
-                let len: usize = start_to_cflf(&bytes[1..]);
+                let len: usize = start_to_crlf(&bytes[1..]);
                 return (
                     Self::Error(str::from_utf8(&bytes[1..len]).unwrap().to_string()),
                     len + 3, // +3 for the CRLF and the - 
                 );
             },
             b':' => {
-                let len: usize = start_to_cflf(&bytes[1..]);
+                let len: usize = start_to_crlf(&bytes[1..]);
                 return (
                     Self::Integer(str::from_utf8(&bytes[1..len]).unwrap().parse().unwrap()),
                     len + 3, // +3 for the CRLF and the : 
                 );
             },
             b'$' => {
-                // Reads the length from the first byte of the serialized message
-                let len: usize = start_to_cflf(&bytes[1..]);
-                // Determines the length of the actual string message within the serialized message
-                let length: i32  = str::from_utf8(&bytes[1..len]).unwrap().parse().unwrap(); 
-                
-                // Handle Null BulkString 
-                if length == -1 {
-                    return (Self::Null, len + 3);
-                }
-
-                // Handle Empty BulkString
-                if length == 0 {
-                    return (Self::BulkString("".to_string()), len + 3);
-                }
+                let len_len = start_to_crlf(&bytes[1..]);
+                let len: usize = str::from_utf8(&bytes[1..=len_len])
+                    .unwrap()
+                    .parse()
+                    .unwrap();
 
                 return (
-                    Self::BulkString(str::from_utf8(&bytes[len + 3..len + 3 + length as usize]).unwrap().to_string()),
-                    len + 3 + length as usize + 3, // +3 for the CRLF and the $, +3 for the CRLF and the length
+                    Self::BulkString(
+                        str::from_utf8(&bytes[len_len + 3..len_len + 3 + len])
+                            .unwrap()
+                            .to_string(),
+                    ),
+                    len_len + 3 + len + 2,
                 );
             },
             // TODO: potentially buggy
             b'*' => {
-                println!("DETECTED ARRAY");
-                // Reads the length from the first byte of the serialized message
-                let len: usize = start_to_cflf(&bytes[1..]);
-                // Determines the length of the actual string message within the serialized message
-                let length_str = str::from_utf8(&bytes[1..len]).unwrap();
-                let length: i32 = if length_str.is_empty() { 0 } else { length_str.parse().unwrap() };  
-                println!("1");
-                let mut index = len + 3;
-                let mut array: Vec<RESPMessage> = vec![];
-                for _ in 0..length {
-                    let (message, len) = Self::deserialize(&bytes[index..]);
-                    array.push(message);
-                    index += len;
+                let len_len = start_to_crlf(&bytes[1..]);
+                let num_elements: usize = str::from_utf8(&bytes[1..=len_len])
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+
+                let mut result: Vec<Self> = vec![];
+                let mut used_length_in_elements = 0;
+                let header_size = 1 + len_len + 2;
+
+                for _ in 0..num_elements {
+                    let (element, used_size) =
+                        Self::deserialize(&bytes[header_size + used_length_in_elements..]);
+                    result.push(element);
+                    used_length_in_elements += used_size;
                 }
-                println!("2");
-                return (Self::Array(array), index);
+
+                (Self::Array(result), header_size + used_length_in_elements)
             },
             _ => (Self::Error("Invalid RESP message type".to_string()), 0),
         }
@@ -167,10 +164,10 @@ impl RESPMessage {
                     let args: Vec<RESPMessage> = elements.iter().skip(1).cloned().collect();
                     Ok((command.clone(), args))
                 } else {
-                    Err(Error::msg("First element of array must be a bulk string"))
+                    Err(Error::msg("First element of the Array must be a BulkString"))
                 }
             }
-            _ => Err(Error::msg("Message is not an array")),
+            _ => Err(Error::msg("Message is not an Array")),
         }
     }
     
