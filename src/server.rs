@@ -50,7 +50,7 @@ impl Server {
                 "ping" => {
                     RESPMessage::SimpleString("PONG".to_string())
                 },
-                // "echo" => args.first().unwrap().clone(),
+                "echo" => args.first().unwrap().clone(),
                 _ => RESPMessage::Error("Error".to_string())
             };
             let serialized_response = RESPMessage::serialize(&response);
