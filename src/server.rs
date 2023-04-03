@@ -40,17 +40,18 @@ impl Server {
                 break;
             }
 
-            let (message, _) = RESPMessage::deserialize(&buffer);
-            // println!("Message recieved: {:#?}", {message});
+            println!("Buffer contents: {:?}", String::from_utf8_lossy(&buffer));
 
-            // deserialize from resp -> str ("ping", etc)
-            // use to_command to interpret which str
+            let (message, _) = RESPMessage::deserialize(&buffer);
+            println!("Message recieved: {:?}", {message.clone()});
+            println!("MADE IT");
             let (command, args) = message.to_command()?;
+            println!("Here is the command: {}", {command.clone()});
             let response = match command.to_ascii_lowercase().as_ref() {
                 "ping" => {
                     RESPMessage::SimpleString("PONG".to_string())
                 },
-                "echo" => args.first().unwrap().clone(),
+                // "echo" => args.first().unwrap().clone(),
                 _ => RESPMessage::Error("Error".to_string())
             };
             let serialized_response = RESPMessage::serialize(&response);

@@ -130,12 +130,13 @@ impl RESPMessage {
             },
             // TODO: potentially buggy
             b'*' => {
+                println!("DETECTED ARRAY");
                 // Reads the length from the first byte of the serialized message
                 let len: usize = start_to_cflf(&bytes[1..]);
                 // Determines the length of the actual string message within the serialized message
                 let length_str = str::from_utf8(&bytes[1..len]).unwrap();
                 let length: i32 = if length_str.is_empty() { 0 } else { length_str.parse().unwrap() };  
-
+                println!("1");
                 let mut index = len + 3;
                 let mut array: Vec<RESPMessage> = vec![];
                 for _ in 0..length {
@@ -143,6 +144,7 @@ impl RESPMessage {
                     array.push(message);
                     index += len;
                 }
+                println!("2");
                 return (Self::Array(array), index);
             },
             _ => (Self::Error("Invalid RESP message type".to_string()), 0),
@@ -157,20 +159,41 @@ impl RESPMessage {
         }
     }
 
-    pub fn to_command(&self) -> Result<(String, Vec<RESPMessage>)> {
+    pub fn to_command(&self) -> Result<(String, Vec<RESPMessage>), Error> {
         match self {
             RESPMessage::Array(elements) => {
-                let (first, rest) = elements.split_first().unwrap();
-                let first_str = match first {
-                    RESPMessage::BulkString(s) => s.clone(),
-                    _ => return Err(Error::msg("Invalid RESP message: not a BulkString.")),
-                };
-                let remaining: Vec<RESPMessage> = rest.iter().cloned().collect();
-                Ok((first_str, remaining))
-            },
-            _ => Err(Error::msg("not an array")),
+                println!("Elements: {:?}", elements);
+                if let Some(RESPMessage::BulkString(command)) = elements.get(0) {
+                    let args: Vec<RESPMessage> = elements.iter().skip(1).cloned().collect();
+                    Ok((command.clone(), args))
+                } else {
+                    Err(Error::msg("First element of array must be a bulk string"))
+                }
+            }
+            _ => Err(Error::msg("Message is not an array")),
         }
     }
+    
+
+    // pub fn to_command(&self) -> Result<(String, Vec<RESPMessage>)> {
+    //     println!("MADE IT HERE");
+    //     match self {
+    //         RESPMessage::Array(elements) => {
+    //             println!("MADE IT NOW");
+    //             let (first, rest) = elements.split_first().unwrap();
+    //             println!("MADE IT COOL");
+    //             println!("First is here: {:?}", first);
+    //             let first_str = match first {
+    //                 RESPMessage::BulkString(s) => s.clone(),
+    //                 _ => return Err(Error::msg("Invalid RESP message: not a BulkString.")),
+    //             };
+    //             let remaining: Vec<RESPMessage> = rest.iter().cloned().collect();
+    //             println!("remaining is here: {:?}", remaining);
+    //             Ok((first_str, remaining))
+    //         },
+    //         _ => Err(Error::msg("not an array")),
+    //     }
+    // }
 
 
 }
