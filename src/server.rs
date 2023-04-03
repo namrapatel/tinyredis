@@ -18,7 +18,6 @@ impl Server {
         Ok(Self { listener, cache })
     }
     
-
     pub async fn run(server: Server) -> Result<()> {
 
         loop {
@@ -59,7 +58,7 @@ impl Server {
                 },
                 "echo" => args.first().unwrap().clone(),
                 "set" => {
-                    
+
                 }
                 _ => RESPMessage::Error("Error".to_string())
             };

@@ -7,5 +7,8 @@ use server::Server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    Server::run().await
+    let server = Server::new().await?;
+
+    Server::run(server).await?;
+    Ok(())
 }
