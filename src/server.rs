@@ -1,26 +1,33 @@
-use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
-use crate::{resp::RESPMessage};
 use anyhow::{Result, Error};
+use crate::{resp::RESPMessage, cache::{Cache, self}};
+use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
 
 const MESSAGE_SIZE: usize = 512;
 
 pub struct Server {
-    listener: TcpListener
+    listener: TcpListener,
+    cache: Cache
 }
 
 impl Server {
 
-    pub async fn run() -> Result<()> {
+    pub async fn new() -> Result<Self, Error> {
         let listener = TcpListener::bind("127.0.0.1:6379").await?;
+        let mut cache = Cache::new();
+    
+        Ok(Self { listener, cache })
+    }
+    
+
+    pub async fn run(server: Server) -> Result<()> {
 
         loop {
-            let incoming = listener.accept().await;
-
+            let incoming = server.listener.accept().await;
             match incoming {
                 Ok((mut stream, addr)) => {
                     println!("Handling connection from: {}", addr);
                     tokio::spawn(async move {
-                        Self::handle_connection(&mut stream).await.unwrap();
+                        Self::handle_connection(&mut stream, &mut server.cache).await.unwrap();
                     });
                 },
                 Err(e) => {
@@ -30,7 +37,7 @@ impl Server {
         }
     }
 
-    async fn handle_connection(stream: &mut TcpStream) -> Result<()> {
+    async fn handle_connection(stream: &mut TcpStream, cache: &mut Cache) -> Result<()> {
         let mut buffer = [0; MESSAGE_SIZE];
 
         loop { 
@@ -51,6 +58,9 @@ impl Server {
                     RESPMessage::SimpleString("PONG".to_string())
                 },
                 "echo" => args.first().unwrap().clone(),
+                "set" => {
+                    
+                }
                 _ => RESPMessage::Error("Error".to_string())
             };
             let serialized_response = RESPMessage::serialize(&response);

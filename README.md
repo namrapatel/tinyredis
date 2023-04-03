@@ -12,3 +12,7 @@ A minimal implementation of Redis.
 - [ ] Pub/sub
 - [ ] Backups
 - [ ] Leader elections
+
+### Usage and Testing
+
+Use `cargo run` to run the server. Use `cargo test` to run the tests. Both should be done separetely in two different shells.

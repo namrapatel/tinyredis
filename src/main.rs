@@ -1,5 +1,6 @@
 mod server;
 mod resp;
+mod cache;
 
 use anyhow::{Result};
 use server::Server;
