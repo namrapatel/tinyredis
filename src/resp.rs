@@ -1,10 +1,9 @@
-use anyhow::{Error, Result};
 use std::str;
-// use crate::command::Command;
+use anyhow::{Result, anyhow, Error};
 
 const CRLF: &[u8] = b"\r\n";
 
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub enum RESPMessage {
     SimpleString(String),
     Error(String),
@@ -158,19 +157,19 @@ impl RESPMessage {
         }
     }
     
-    // This is the function that we will use to convert the RESPMessage to a Command
-    // pub fn to_command(&self) -> Result<Command> {
-    //     if let Self::Array(elements) = self {
-    //         if let Self::BulkString(command) = elements.get(0).ok_or(Error::msg("no command"))? {
-    //             return Command::new(
-    //                 command,
-    //                 &elements[1..].iter().collect::<Vec<_>>(),
-    //             );
-    //         }
-    //         return Err(Error::msg("not a command"));
-    //     }
-    //     Err(Error::msg("not an array"))
-    // }
-    
+    pub fn to_command(&self) -> Result<(String, Vec<RESPMessage>)> {
+        match self {
+            RESPMessage::Array(elements) => {
+                let (first, rest) = elements.split_first().unwrap();
+                let first_str = match first {
+                    RESPMessage::BulkString(s) => s.clone(),
+                    _ => panic!("not a bulk string"),
+                };
+                let remaining: Vec<RESPMessage> = rest.iter().cloned().collect();
+                Ok((first_str, remaining))
+            },
+            _ => Err(anyhow::Error::msg("not an array")),
+        }
+    }
 
 }
