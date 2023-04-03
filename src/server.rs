@@ -1,6 +1,7 @@
 use std::{io::{Read,Write,Result}};
 use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
 use std::str;
+use crate::{resp::RESPMessage};
 
 const MESSAGE_SIZE: usize = 512;
 
@@ -34,10 +35,10 @@ impl Server {
             let mut buffer = [0; MESSAGE_SIZE];
             _ = stream.read(&mut buffer).await?;
             
-            let message =  str::from_utf8(&buffer).unwrap();
+            let (message, _) = RESPMessage::deserialize(&buffer);
             // println!("Message recieved: {}", {message});
             match message {
-                "*1\n$4\nPING\n" => {
+                RESPMessage::Array(_)=> {
                     let string = "+PONG\r\n";
                     let reply = str::as_bytes(&string);
                     _ = stream.write_all(&reply);
