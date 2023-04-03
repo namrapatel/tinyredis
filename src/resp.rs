@@ -1,5 +1,5 @@
 use std::str;
-use anyhow::{Result, anyhow, Error};
+use anyhow::{Result, Error};
 
 const CRLF: &[u8] = b"\r\n";
 
@@ -156,20 +156,21 @@ impl RESPMessage {
             _ => Err(Error::msg("Trying to decode non-string")),
         }
     }
-    
+
     pub fn to_command(&self) -> Result<(String, Vec<RESPMessage>)> {
         match self {
             RESPMessage::Array(elements) => {
                 let (first, rest) = elements.split_first().unwrap();
                 let first_str = match first {
                     RESPMessage::BulkString(s) => s.clone(),
-                    _ => panic!("not a bulk string"),
+                    _ => return Err(Error::msg("Invalid RESP message: not a BulkString.")),
                 };
                 let remaining: Vec<RESPMessage> = rest.iter().cloned().collect();
                 Ok((first_str, remaining))
             },
-            _ => Err(anyhow::Error::msg("not an array")),
+            _ => Err(Error::msg("not an array")),
         }
     }
+
 
 }

@@ -1,7 +1,6 @@
-use std::{io::{Read,Write,Result}};
 use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
-use std::str;
 use crate::{resp::RESPMessage};
+use anyhow::{Result, Error};
 
 const MESSAGE_SIZE: usize = 512;
 
@@ -42,20 +41,20 @@ impl Server {
             }
 
             let (message, _) = RESPMessage::deserialize(&buffer);
-
             // println!("Message recieved: {:#?}", {message});
 
-            // deserialize from resp -> ping
-            // 
-            match message {
-                RESPMessage::Array(_) => {
-                    let string = "+PONG\r\n";
-                    let reply = str::as_bytes(&string);
-                    _ = stream.write_all(&reply);
+            // deserialize from resp -> str ("ping", etc)
+            // use to_command to interpret which str
+            let (command, args) = message.to_command()?;
+            let response = match command.to_ascii_lowercase().as_ref() {
+                "ping" => {
+                    RESPMessage::SimpleString("PONG".to_string())
                 },
-                _ => { break }
-            }   
-            stream.write("+PONG\r\n".as_bytes()).await?;
+                "echo" => args.first().unwrap().clone(),
+                _ => RESPMessage::Error("Error".to_string())
+            };
+            let serialized_response = RESPMessage::serialize(&response);
+            stream.write_all(&serialized_response).await;
         }
         Ok(())
     }

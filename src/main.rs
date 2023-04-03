@@ -1,7 +1,7 @@
 mod server;
 mod resp;
 
-use std::io::Result;
+use anyhow::{Result};
 use server::Server;
 
 #[tokio::main]
