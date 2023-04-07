@@ -2,6 +2,7 @@ use anyhow::{Result, Error};
 use crate::{resp::RESPMessage, cache::{Cache, self}};
 use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
 use std::sync::{Arc, Mutex};
+use std::env;
 
 const MESSAGE_SIZE: usize = 512;
 
@@ -12,8 +13,16 @@ pub struct Server {
 
 impl Server {
 
+    // Use cargo run <PORT> when starting the server 
     pub async fn new() -> Result<Self, Error> {
-        let listener = TcpListener::bind("127.0.0.1:6379").await?;
+        
+
+       //get arguments from command line ie. port numbers 
+        let args: Vec<String> = env::args().collect();
+        println!("{:?}",args);
+        let PORT = &args[1];
+        
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).await?;
         let cache = Arc::new(Mutex::new(Cache::new()));
     
         Ok(Self { listener, cache })
