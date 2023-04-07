@@ -1,6 +1,7 @@
 use anyhow::{Result, Error};
 use crate::{resp::RESPMessage, cache::{Cache, self}};
 use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
+use std::{sync::{Arc, Mutex}, collections::HashMap, process};
 use std::sync::{Arc, Mutex};
 use std::env;
 
@@ -103,7 +104,10 @@ impl Server {
                         },
                         _ => RESPMessage::Error("Invalid key or value".to_string()),
                     }
-                },                                                       
+                },
+                "getserverid" => {
+                    RESPMessage::SimpleString(process::id().to_string())
+                }                                                     
                 _ => RESPMessage::Error("Error".to_string())
             };
             let serialized_response = RESPMessage::serialize(&response);
@@ -111,4 +115,24 @@ impl Server {
         }
         Ok(())
     }
+
+    // start an election (called when time out after pining leader)
+    fn start_election(ports: &[i32]) {
+        println!("Server {} is starting an election", process::id());
+        // Todo: call helper function to get pid from all bakups
+
+    }
+
+    async fn get_server_ids(ports: &[i32]) -> HashMap<i32, i32> {
+        let mut map = HashMap::new();
+        // loop over the secondary server ports and get their server Ids
+        for port in ports {
+            let mut stream = TcpStream::connect("localhost:{port}").await;
+            let message = RESPMessage::SimpleString("GETSERVERID".to_string());
+            stream.write_all(message).await;
+        }
+        map
+    }
+
+
 }
