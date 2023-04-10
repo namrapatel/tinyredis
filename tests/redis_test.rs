@@ -108,47 +108,7 @@ fn it_can_get_and_set_with_lru() {
     assert_eq!(value, "value");
 
     //it_can_handle_lru();
-
-    let client = Client::open("redis://127.0.0.1/").unwrap();
-    let mut con = client.get_connection().unwrap();
-
-    let _ = redis::cmd("SET")
-        .arg("over1")
-        .arg("value1")
-        .query::<String>(&mut con)
-        .unwrap();
-
-    let _ = redis::cmd("SET")
-        .arg("over2")
-        .arg("value2")
-        .query::<String>(&mut con)
-        .unwrap();
-
-    let _ = redis::cmd("SET")
-        .arg("over3")
-        .arg("value3")
-        .query::<String>(&mut con)
-        .unwrap();
-
-    let _ = redis::cmd("SET")
-        .arg("over4")
-        .arg("value4")
-        .query::<String>(&mut con)
-        .unwrap();
-
-    // over4 have smallest aging, over1 have largest againg, LRU
-    let value: String = redis::cmd("GET").arg("over4").query(&mut con).unwrap();
-    assert_eq!(value, "value4");
-
-    // LRU Policy remove over1
-    let err = redis::cmd("GET")
-        .arg("over1")
-        .query::<String>(&mut con)
-        .unwrap_err();
-    assert_eq!(
-        err.detail().unwrap(),
-        "\"Response type not string compatible.\" (response was nil)"
-    );
+    it_can_handle_lru();
 }
 #[test]
 fn it_can_set_with_ttl() {
@@ -196,46 +156,45 @@ fn it_can_handle_del() {
     assert_eq!(del, "1");
 }
 
-#[test]
 fn it_can_handle_lru() {
-    // let client = Client::open("redis://127.0.0.1/").unwrap();
-    // let mut con = client.get_connection().unwrap();
+    let client = Client::open("redis://127.0.0.1/").unwrap();
+    let mut con = client.get_connection().unwrap();
 
-    // let _ = redis::cmd("SET")
-    //     .arg("over1")
-    //     .arg("value1")
-    //     .query::<String>(&mut con)
-    //     .unwrap();
+    let _ = redis::cmd("SET")
+        .arg("over1")
+        .arg("value1")
+        .query::<String>(&mut con)
+        .unwrap();
 
-    // let _ = redis::cmd("SET")
-    //     .arg("over2")
-    //     .arg("value2")
-    //     .query::<String>(&mut con)
-    //     .unwrap();
+    let _ = redis::cmd("SET")
+        .arg("over2")
+        .arg("value2")
+        .query::<String>(&mut con)
+        .unwrap();
 
-    // let _ = redis::cmd("SET")
-    //     .arg("over3")
-    //     .arg("value3")
-    //     .query::<String>(&mut con)
-    //     .unwrap();
+    let _ = redis::cmd("SET")
+        .arg("over3")
+        .arg("value3")
+        .query::<String>(&mut con)
+        .unwrap();
 
-    // let _ = redis::cmd("SET")
-    //     .arg("over4")
-    //     .arg("value4")
-    //     .query::<String>(&mut con)
-    //     .unwrap();
+    let _ = redis::cmd("SET")
+        .arg("over4")
+        .arg("value4")
+        .query::<String>(&mut con)
+        .unwrap();
 
-    // // over4 have smallest aging, over1 have largest againg, LRU
-    // let value: String = redis::cmd("GET").arg("over4").query(&mut con).unwrap();
-    // assert_eq!(value, "value4");
+    // over4 have smallest aging, over1 have largest againg, LRU
+    let value: String = redis::cmd("GET").arg("over4").query(&mut con).unwrap();
+    assert_eq!(value, "value4");
 
-    // // LRU Policy remove over1
-    // let err = redis::cmd("GET")
-    //     .arg("over1")
-    //     .query::<String>(&mut con)
-    //     .unwrap_err();
-    // assert_eq!(
-    //     err.detail().unwrap(),
-    //     "\"Response type not string compatible.\" (response was nil)"
-    // );
+    // LRU Policy remove over1
+    let err = redis::cmd("GET")
+        .arg("over1")
+        .query::<String>(&mut con)
+        .unwrap_err();
+    assert_eq!(
+        err.detail().unwrap(),
+        "\"Response type not string compatible.\" (response was nil)"
+    );
 }
