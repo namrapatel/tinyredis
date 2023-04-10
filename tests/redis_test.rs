@@ -78,7 +78,7 @@ fn it_can_handle_echo() {
 }
 
 #[test]
-fn it_can_get_and_set() {
+fn it_can_get_and_set_with_lru() {
     let client = Client::open("redis://127.0.0.1/").unwrap();
     let mut con = client.get_connection().unwrap();
     let mut con2 = client.get_connection().unwrap();
@@ -107,7 +107,7 @@ fn it_can_get_and_set() {
     let value: String = redis::cmd("GET").arg("key").query(&mut con2).unwrap();
     assert_eq!(value, "value");
 
-    //it_can_handle_LRU();
+    //it_can_handle_lru();
 
     let client = Client::open("redis://127.0.0.1/").unwrap();
     let mut con = client.get_connection().unwrap();
@@ -197,7 +197,7 @@ fn it_can_handle_del() {
 }
 
 #[test]
-fn it_can_handle_LRU() {
+fn it_can_handle_lru() {
     // let client = Client::open("redis://127.0.0.1/").unwrap();
     // let mut con = client.get_connection().unwrap();
 
