@@ -63,7 +63,7 @@ fn it_can_handle_pings_from_multiple_connections() {
     let mut con2 = client.get_connection().unwrap();
 
     let ping: String = redis::cmd("PING").query(&mut con).unwrap();
-    let ping2: String = redis::cmd("PING").query(&mut con).unwrap();
+    let ping2: String = redis::cmd("PING").query(&mut con2).unwrap();
     assert_eq!(ping, "PONG");
     assert_eq!(ping2, "PONG");
 }
@@ -154,7 +154,7 @@ fn it_can_handle_del() {
 }
 
 #[test]
-fn it_can_handle_LRU() {
+fn it_can_handle_lru() {
     let client = Client::open("redis://127.0.0.1/").unwrap();
     let mut con = client.get_connection().unwrap();
 
