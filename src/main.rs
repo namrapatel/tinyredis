@@ -1,7 +1,7 @@
 mod server;
 mod resp;
 mod cache;
-mod node;
+mod simpleElection;
 
 use anyhow::{Result};
 use server::Server;

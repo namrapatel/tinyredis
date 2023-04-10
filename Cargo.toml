@@ -2,12 +2,13 @@
 license = "MIT"
 version = "0.0.1"
 name = "tinyredis"
-authors = ["Namra Patel"]
+authors = ["Namra Patel", "Jake Bunting"]
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0.59"
 tokio = { version = "1.23.0", features = ["full"] }
+regex = "1"
 
 [dev-dependencies]
 ctor = "0.1.26"
