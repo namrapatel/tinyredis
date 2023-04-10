@@ -5,12 +5,14 @@ use std::{sync::{Arc, Mutex}, process};
 use std::env;
 use std::thread;
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 const MESSAGE_SIZE: usize = 512;
 
 pub struct Server {
     listener: TcpListener,
     cache: Arc<Mutex<Cache>>,
+    should_run: Arc<AtomicBool>, // Add a flag to indicate whether the server should continue running
 }
 
 impl Server {
@@ -23,8 +25,25 @@ impl Server {
         
         let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).await?;
         let cache = Arc::new(Mutex::new(Cache::new()));
-    
-        Ok(Self { listener, cache })
+        let should_run = Arc::new(AtomicBool::new(true));
+        Ok(Self { listener, cache, should_run })
+    }
+
+    // Getter method to access the `cache` field
+    pub fn get_cache(&self) -> Arc<Mutex<Cache>> {
+        Arc::clone(&self.cache)
+    }
+
+    // Getter method to access the `should_run` field
+    pub fn should_run(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.should_run)
+    }
+
+    // New method to create a server instance with a specified port and an existing cache
+    pub async fn with_port_and_cache(port: u16, cache: Arc<Mutex<Cache>>, should_run: Arc<AtomicBool>) -> Result<Self, Error> {
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).await?;
+        // Initialize the `should_run` field
+        Ok(Self { listener, cache, should_run })
     }
     
     pub async fn run(server: Server) -> Result<()> {  
@@ -55,14 +74,19 @@ impl Server {
         }  
 
         loop {
+            if !server.should_run().load(Ordering::Relaxed) {
+                break;
+            }
+
             let incoming = server.listener.accept().await;
 
             match incoming {
                 Ok((mut stream, addr)) => {
                     println!("Handling connection from: {}", addr);
                     let cache = Arc::clone(&server.cache);
+                    let should_run = Arc::clone(&server.should_run); // Create a clone of the should_run flag
                     tokio::spawn(async move {
-                        Self::handle_connection(&mut stream, cache).await.unwrap();
+                        Self::handle_connection(&mut stream, cache, should_run).await.unwrap();
                     });
                 },
                 Err(e) => {
@@ -70,9 +94,14 @@ impl Server {
                 }
             }
         }
+        Ok(())
     }
 
-    async fn handle_connection(stream: &mut TcpStream, cache: Arc<Mutex<Cache>>) -> Result<()> {
+    async fn handle_connection(
+        stream: &mut TcpStream, 
+        cache: Arc<Mutex<Cache>>,
+        should_run: Arc<AtomicBool>,
+    ) -> Result<()> {
         let mut buffer = [0; MESSAGE_SIZE];
 
         loop { 
@@ -136,16 +165,18 @@ impl Server {
                 "setleader" => {
                     println!("Recieved leader message, becoming leader...");
                     // start server on 6379
-                    let mut child = Command::new(std::env::args().next().unwrap())
-                        .arg("6379")
-                        .stdin(Stdio::null())
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .spawn()
-                        .expect("Failed to start new instance of the program");
-                    
-                    RESPMessage::SimpleString("OK".to_string());
-                    process::exit(0);
+                    // let mut child = Command::new(std::env::args().next().unwrap())
+                    //     .arg("6379")
+                    //     .stdin(Stdio::null())
+                    //     .stdout(Stdio::null())
+                    //     .stderr(Stdio::null())
+                    //     .spawn()
+                    //     .expect("Failed to start new instance of the program");
+
+                    // Set the flag to stop the current server instance
+                    should_run.store(false, Ordering::Relaxed);
+                    RESPMessage::SimpleString("OK".to_string())
+                    // process::exit(0);
                 }                                            
                 _ => RESPMessage::Error("Error".to_string())
             };

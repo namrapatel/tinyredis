@@ -9,12 +9,14 @@ pub fn now() -> u128 {
         .as_millis()
 }
 
+#[derive(Debug)]
 struct Entry {
     value: String,
     ttl: Option<u64>,
     insertion_time: u128,
 }
 
+#[derive(Debug)]
 pub struct Cache {
     cache: HashMap<String, Entry>,
 }
