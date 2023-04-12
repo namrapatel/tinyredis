@@ -5,6 +5,9 @@ use std::{sync::{Arc, Mutex}, process};
 use std::env;
 use std::thread;
 use std::process::{Command, Stdio};
+use rand::Rng;
+use std::net::SocketAddr;
+
 
 const MESSAGE_SIZE: usize = 512;
 const CACHE_SIZE: usize = 3;
@@ -24,6 +27,36 @@ impl Server {
 
         let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).await?;
         let cache = Arc::new(Mutex::new(Cache::new(CACHE_SIZE)));
+
+        if PORT == "6379" {
+            println!("Master Server Started"); 
+
+            let length = 10; //set length of replication ID
+
+            let mut rng = rand::thread_rng();
+            let charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            let RUN_ID: String = (0..length)
+                .map(|_| rng.gen_range(0..charset.len()))
+                .map(|i| charset.chars().nth(i).unwrap())
+                .collect();
+
+
+
+        }else{
+            println!("Replication Server Started");
+            let server_addr = SocketAddr::from(([127, 0, 0, 1], 6379)); // connect to the master server 
+            let mut stream = TcpStream::connect(server_addr).await;
+
+            //check if connection to Master was succesful 
+            if stream.is_ok() {
+                println!("Successfully connected to server!");
+            } else {
+                println!("Failed to connect to server!");
+            }
+
+            //
+
+        }
 
         Ok(Self { listener, cache })
     }
@@ -53,12 +86,12 @@ impl Server {
                     String::from("6389")
                     ]);
             });
-        }  
+        } 
 
         loop {
             let incoming = server.listener.accept().await;
 
-            match incoming {
+            match incoming { //check connection 
                 Ok((mut stream, addr)) => {
                     println!("Handling connection from: {}", addr);
                     let cache = Arc::clone(&server.cache);
