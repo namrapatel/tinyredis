@@ -78,6 +78,43 @@ fn it_can_handle_echo() {
 }
 
 #[test]
+fn it_can_get_and_set() {
+    let client = Client::open("redis://127.0.0.1/").unwrap();
+    let mut con = client.get_connection().unwrap();
+    let mut con2 = client.get_connection().unwrap();
+
+    let err = redis::cmd("GET")
+        .arg("unregistered-key")
+        .query::<String>(&mut con)
+        .unwrap_err();
+
+    println!("{:?}", err);
+
+    assert_eq!(
+        err.detail().unwrap(),
+        "\"Response type not string compatible.\" (response was nil)"
+    );
+
+    let _ = redis::cmd("SET")
+        .arg("one")
+        .arg("hello")
+        .query::<String>(&mut con)
+        .unwrap();
+
+    let _ = redis::cmd("SET")
+    .arg("two")
+    .arg("world")
+    .query::<String>(&mut con)
+    .unwrap();
+
+    let value: String = redis::cmd("GET").arg("one").query(&mut con).unwrap();
+    assert_eq!(value, "hello");
+
+    let value: String = redis::cmd("GET").arg("two").query(&mut con2).unwrap();
+    assert_eq!(value, "world");
+}
+
+#[test]
 fn it_can_get_and_set_with_lru() {
     let client = Client::open("redis://127.0.0.1/").unwrap();
     let mut con = client.get_connection().unwrap();
