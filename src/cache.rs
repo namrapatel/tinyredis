@@ -9,6 +9,7 @@ pub fn now() -> u128 {
         .unwrap()
         .as_millis()
 }
+//TODO: take args from commmand promt and store that in set so when replica spins up has data to pull and keys to get otherwise list will be empty 
 
 struct Entry {
     value: String,
