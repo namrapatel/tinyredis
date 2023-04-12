@@ -94,7 +94,10 @@ impl Server {
 
                     match key {
                         Some(Ok(key)) => match cache.lock().unwrap().get(key.as_ref()) {
-                            Some(value) => RESPMessage::BulkString(value),
+                            Some(value) => {
+                                println!("Got value: {:?}", value);
+                                RESPMessage::BulkString(value)
+                            },
                             None => RESPMessage::Null,
                         },
                         _ => RESPMessage::Error("Invalid key".to_string()),
@@ -107,6 +110,7 @@ impl Server {
 
                     match (key, value) {
                         (Some(Ok(key)), Some(Ok(value))) => {
+                            println!("Setting key: {:?} to value: {:?}", key, value);
                             let result: Result<(), ()> = match px {
                                 Some(Ok(px)) => {
                                     let ttl = px.parse::<u64>().ok().map(|ms| ms / 1000);
