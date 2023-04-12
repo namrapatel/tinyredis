@@ -8,8 +8,9 @@ pub fn now() -> u128 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis()
-}
-//TODO: take args from commmand promt and store that in set so when replica spins up has data to pull and keys to get otherwise list will be empty 
+
+
+#[derive(Debug)]
 
 struct Entry {
     value: String,
@@ -23,7 +24,6 @@ pub struct Cache {
     cache: HashMap<String, Entry>,
     maximum: usize,
 }
-
 impl Cache {
     pub fn new(maximum: usize) -> Self {
         Self {
@@ -71,8 +71,11 @@ impl Cache {
         }
 
     pub fn set(&mut self, key: String, value: String, ttl: Option<u64>) -> Option<String> {
+        println!("\n{:?}\n", "Keys Before");
+        for c in &self.cache {
+            println!("{:?}", c);
+        }
         self.update_aging(&key);
-
         let result: Result<(String, String), ()> = match self.cache.keys().len().cmp(&self.maximum)
         {
             Ordering::Greater => Err(()),
@@ -117,7 +120,10 @@ impl Cache {
                         aging: 1,
                     },
                 );
-
+                println!("\n{:?}\n", "Keys After");
+                for c in &self.cache {
+                    println!("{:?}", c);
+                }
                 Some("OK".to_string())
             }
             Err(_) => None,
