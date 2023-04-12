@@ -66,16 +66,7 @@ impl Server {
             let server_addr = SocketAddr::from(([127, 0, 0, 1], 6379)); // connect to the master server
             let mut stream = TcpStream::connect(server_addr).await?;
             let mut buffer = [0; MESSAGE_SIZE];
-            // stream.set_read_timeout(Some(Duration::from_secs(1)));
 
-            // let stream_result = TcpStream::connect(server_addr);
-            // //check if connection to Master was succesful
-            // if let Ok(stream) = stream_result {
-            //     println!("Successfully connected to server!");
-            //     // Use the `stream` variable to send/receive data
-            // } else {
-            //     println!("Failed to connect to server!");
-            // }
 
             let bulk_message: RESPMessage = RESPMessage::BulkString("SYNC".to_string());
 
@@ -110,7 +101,6 @@ impl Server {
                                 .map(|value| value.to_string())
                                 .unwrap_or_else(|err| format!("Error: {:?}", err));
 
-                            println!("SD {:?}", result);
 
                             let response_array: Vec<&str> = result.split(" ").collect(); //convert string to array
 
@@ -125,14 +115,20 @@ impl Server {
                                 } else {
                                     cache.set(
                                         response_array[i].to_string(),
-                                        response_array[i * 2].to_string(),
+                                        response_array[i +3 ].to_string(),
                                         Some(1000),
                                     );
                                 }
                             }
 
                             let save = cache.get_key();
-                            println!("Saved Values in Replica are: {:?}", save);
+                            let (mut save_k, save_v) = save;
+                            println!("Saved Values in Replica are:");
+                            for i in 0..save_k.len(){
+                                println!("Key {:?} -> Value {:?}", save_k[i] , save_v[i]);
+
+                            }
+
                             println!("SYNC complete");
                         }
                     }
@@ -146,99 +142,6 @@ impl Server {
 
         Ok(Self { listener, cache })
     }
-
-    pub async fn forward(&self) -> Result<&Self, Error> {
-        let mut ports = vec![
-            "6380", "6381", "6382", "6383", "6384", "6385", "6386", "6387", "6388", "6389",
-        ];
-
-        for i in 0..ports.len() {
-            let ip_address = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-            let mut port = ports[i].parse::<u16>().unwrap();
-            let server_address = SocketAddr::new(ip_address, port);
-
-            let mut stream = TcpStream::connect(server_address).await?;
-            let mut buffer = [0; MESSAGE_SIZE];
-
-            let bulk_message: RESPMessage = RESPMessage::BulkString("PING".to_string());
-
-            let array = RESPMessage::Array(vec![bulk_message]);
-
-            let serialized = array.serialize();
-
-            match stream.write_all(&serialized).await {
-                Ok(_) => {}
-                Err(e) => println!("Error: {}", e),
-                _ => println!("Default"),
-            }
-
-            let mut active_ports: Vec<u16> = Vec::new();
-            // Read data from the stream into the buffer
-            let timeout_duration = Duration::from_secs(5);
-            match timeout(timeout_duration, stream.read(&mut buffer)).await {
-                Ok(result) => match result {
-                    Ok(bytes_read) => {
-                        if bytes_read == 0 {
-                            //println!("No data received from master");
-                            return Err(anyhow::Error::msg("No data received from master"));
-                        } else {
-                            // Deserialize the received bytes into a RESPMessage
-                            let (response, _) = RESPMessage::deserialize(&buffer);
-                            println!("Received response: {:?}", response);
-                            return Ok(self);
-                        }
-                    }
-                    Err(e) => {
-                        return Err(e.into());
-                    }
-                },
-                Err(_) => {
-                    return Err(anyhow::Error::msg("timeout occured"));
-                }
-            }
-        }
-
-        let server_addr = SocketAddr::from(([127, 0, 0, 1], 6379)); // connect to the master server
-        let mut stream = TcpStream::connect(server_addr).await?;
-        let mut buffer = [0; MESSAGE_SIZE];
-
-        let bulk_message: RESPMessage = RESPMessage::BulkString("SYNC".to_string());
-
-        let array = RESPMessage::Array(vec![bulk_message]);
-
-        let serialized = array.serialize();
-
-        match stream.write_all(&serialized).await {
-            Ok(_) => {}
-            Err(e) => println!("Error: {}", e),
-            _ => println!("Default"),
-        }
-
-        // Read data from the stream into the buffer
-        let timeout_duration = Duration::from_secs(5);
-        match timeout(timeout_duration, stream.read(&mut buffer)).await {
-            Ok(result) => match result {
-                Ok(bytes_read) => {
-                    if bytes_read == 0 {
-                        //println!("No data received from master");
-                        return Err(anyhow::Error::msg("No data received from master"));
-                    } else {
-                        // Deserialize the received bytes into a RESPMessage
-                        let (response, _) = RESPMessage::deserialize(&buffer);
-                        println!("Received response: {:?}", response);
-                        Ok(self)
-                    }
-                }
-                Err(e) => {
-                    return Err(e.into());
-                }
-            },
-            Err(_) => {
-                return Err(anyhow::Error::msg("timeout occured"));
-            }
-        }
-    }
-
     
     pub async fn run(server: Server) -> Result<()> {
         println!("PROCESS_ID: {}", std::process::id());
@@ -322,7 +225,6 @@ impl Server {
                     let key = args.get(0).map(|arg| arg.pack_string());
                     let value = args.get(1).map(|arg| arg.pack_string());
                     let px = args.get(3).map(|arg| arg.pack_string());
-                    let f = self.forward();
                     match (key, value) {
                         (Some(Ok(key)), Some(Ok(value))) => {
                             let result: Result<(), ()> = match px {
@@ -332,9 +234,6 @@ impl Server {
                                     let set_result =
                                         cache.set(key.to_string(), value.to_string(), ttl);
                                     
-                                    
-                                    Self::forward();
-
                                     match set_result {
                                         Some(_) => Ok(()),
                                         None => Err(()),
@@ -383,19 +282,16 @@ impl Server {
                     }
                 }
                 "sync" => {
-                    //let mut result = Vec::new();
-                    println!("TEST");
                     // Acquire the lock on the cache and retrieve all keys
                     let mut resp = cache.lock().unwrap().get_key(); //get keys and values from cache
                     let (mut cache_k, cache_v) = resp; //returns to arrays
 
-                    println!("Re {:?}, {:?}", cache_k, cache_v);
+                    println!("Master Values {:?}, {:?}", cache_k, cache_v);
 
                     cache_k.extend(cache_v); //combine to 1 array
                     let mut joined_str = String::new();
 
                     for i in 0..cache_k.len() {
-                        println!("SEND");
                         joined_str = cache_k.join(" ");
                         RESPMessage::SimpleString(cache_k[i].to_string());
                     }

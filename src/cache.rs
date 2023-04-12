@@ -64,7 +64,8 @@ impl Cache {
         for (k, entry) in self.cache.iter_mut() {
                 keys.push(k.to_string());
                 vals.push(entry.value.to_string());
-                println!("{:?}", entry.value);
+                
+                
             }
             (keys, vals)
         }
