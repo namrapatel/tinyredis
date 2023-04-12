@@ -7,11 +7,10 @@ A minimal implementation of Redis.
 - [x] ECHO
 - [x] GET
 - [x] SET
+- [x] DEL
 - [x] Cache with Expiry
-- [ ] Transations: multiple operations
-- [ ] Pub/sub
-- [ ] Backups
-- [ ] Leader elections
+- [x] SYNC: Replication 
+- [x] Leader elections
 
 ### Usage and Testing
 
