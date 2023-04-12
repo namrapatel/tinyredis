@@ -7,7 +7,7 @@ use std::thread;
 use std::process::{Command, Stdio};
 use rand::Rng;
 use std::net::SocketAddr;
-use std::net::{TcpStream as SyncTcpStream};
+use tokio::time::{timeout, Duration};
 
 
 const MESSAGE_SIZE: usize = 512;
@@ -44,15 +44,18 @@ impl Server {
         } else {
             println!("Replication Server Started");
             let server_addr = SocketAddr::from(([127, 0, 0, 1], 6379)); // connect to the master server 
-            let mut stream = SyncTcpStream::connect(server_addr)?;
-            let stream_result = SyncTcpStream::connect(server_addr);
+            let mut stream = TcpStream::connect(server_addr).await?;
+            let mut buffer = [0; MESSAGE_SIZE];
+            // stream.set_read_timeout(Some(Duration::from_secs(1)));
+            
+            // let stream_result = SyncTcpStream::connect(server_addr);
             //check if connection to Master was succesful 
-            if let Ok(stream) = stream_result {
-                println!("Successfully connected to server!");
-                // Use the `stream` variable to send/receive data
-            } else {
-                println!("Failed to connect to server!");
-            }
+            // if let Ok(stream) = stream_result {
+            //     println!("Successfully connected to server!");
+            //     // Use the `stream` variable to send/receive data
+            // } else {
+            //     println!("Failed to connect to server!");
+            // }
             
 
             let bulk_message: RESPMessage = RESPMessage::BulkString("SYNC".to_string());
@@ -63,24 +66,31 @@ impl Server {
 
             let serialized = array.serialize();
     
-            match stream.write_all(&serialized) {
+            match stream.write_all(&serialized).await {
                 Ok(_) => {},
                 Err(e) => println!("Error: {}", e),
                 _ => println!("Default"),
             }
 
-            let mut response = String::new();
-            match stream.read_to_string(&mut response) {
-                Ok(_) => println!("DONE{}", response),
-                Err(e) => {},
-                _ => println!("Default case"),
+            // Read data from the stream into the buffer
+            let timeout_duration = Duration::from_secs(5);
+            match timeout(timeout_duration, stream.read(&mut buffer)).await {
+                Ok(result) => match result {
+                    Ok(bytes_read) => {
+                        if bytes_read == 0 {
+                            println!("No data received from master");
+                        } else {
+                            // Deserialize the received bytes into a RESPMessage
+                            let (response, _) = RESPMessage::deserialize(&buffer);
+                            println!("Received response: {:?}", response);
+                        }
+                    }
+                    Err(e) => println!("Error: {}", e),
+                },
+                Err(_) => println!("Timeout occurred"),
             }
             
-
-
             //TODO: implement sync so replica has all the same data as MASTER 
-
-
 
         }
 
@@ -226,7 +236,7 @@ impl Server {
                      // Acquire the lock on the cache and retrieve all keys
                      let cache = cache.lock().unwrap().get_key();
                      println!("{:?}", cache);
-                     RESPMessage::BulkString("OK".to_string())
+                     RESPMessage::BulkString("PING".to_string())
                      //let mut result: Vec<String> = vec![];
                      
                     
@@ -251,7 +261,7 @@ impl Server {
             };
             let serialized_response = RESPMessage::serialize(&response);
             match stream.write_all(&serialized_response).await {
-                Ok(_) => println!("write to stream OK"),
+                Ok(_) => println!("Write to stream OK"),
                 Err(e) => println!("Error {}", e),
                 _ => println!("Default catch"),
             };
