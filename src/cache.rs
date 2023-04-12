@@ -9,7 +9,7 @@ pub fn now() -> u128 {
         .unwrap()
         .as_millis()
 }
-
+#[derive(Debug)]
 struct Entry {
     value: String,
     ttl: Option<u64>,
@@ -58,8 +58,11 @@ impl Cache {
     }
 
     pub fn set(&mut self, key: String, value: String, ttl: Option<u64>) -> Option<String> {
+        println!("\n{:?}\n", "Keys Before");
+        for c in &self.cache {
+            println!("{:?}", c);
+        }
         self.update_aging(&key);
-
         let result: Result<(String, String), ()> = match self.cache.keys().len().cmp(&self.maximum)
         {
             Ordering::Greater => Err(()),
@@ -104,7 +107,10 @@ impl Cache {
                         aging: 1,
                     },
                 );
-
+                println!("\n{:?}\n", "Keys After");
+                for c in &self.cache {
+                    println!("{:?}", c);
+                }
                 Some("OK".to_string())
             }
             Err(_) => None,
