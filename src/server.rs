@@ -45,16 +45,42 @@ impl Server {
         }else{
             println!("Replication Server Started");
             let server_addr = SocketAddr::from(([127, 0, 0, 1], 6379)); // connect to the master server 
-            let mut stream = TcpStream::connect(server_addr).await;
-
+            let mut stream = TcpStream::connect(server_addr).await?;
+            let stream_result = TcpStream::connect(server_addr).await;
             //check if connection to Master was succesful 
-            if stream.is_ok() {
+            if let Ok(stream) = stream_result {
                 println!("Successfully connected to server!");
+                // Use the `stream` variable to send/receive data
             } else {
                 println!("Failed to connect to server!");
             }
+            
 
-            //
+            let bulk_message: RESPMessage = RESPMessage::BulkString("SYNC".to_string());
+
+            let array = RESPMessage::Array(vec![
+                bulk_message
+            ]);
+
+            let serialized = array.serialize();
+    
+            match stream.write_all(&serialized) {
+                Ok(_) => {},
+                Err(e) => println!("Error: {}", e),
+                _ => println!("Default"),
+            }
+            let mut response = String::new();
+            match stream.read_to_string(&mut response).await {
+                Ok(_) => println!("DONE{}", response),
+                Err(e) => {},
+                _ => println!("Default case"),
+            }
+            
+
+
+            //TODO: implement sync so replica has all the same data as MASTER 
+
+
 
         }
 
@@ -87,7 +113,7 @@ impl Server {
                     ]);
             });
         } 
-
+//TODO: loop through all replication and forward CACHE Commands to replicas 
         loop {
             let incoming = server.listener.accept().await;
 
@@ -193,6 +219,33 @@ impl Server {
                         },
                         _ => RESPMessage::Error("Invalid Request".to_string()),
                     }
+                },
+                "sync" => {
+                    //let mut result = Vec::new();
+                    println!("TEST");
+                     // Acquire the lock on the cache and retrieve all keys
+                     let cache = cache.lock().unwrap().get_key();
+                     println!("{:?}", cache);
+                     RESPMessage::BulkString("OK".to_string())
+                     //let mut result: Vec<String> = vec![];
+                     
+                    
+                    //GET keys here 
+                    /* 
+                    // Iterate through all keys and retrieve their values
+                    for key in keys {
+                        if let Some(value) = cache.get(key) {
+                            result.push(RESPMessage::BulkString(key.to_string()));
+                            result.push(RESPMessage::BulkString(value.clone()));
+                        }
+                    }
+                    // Return a RESPMessage::Array containing all key-value pairs
+                    if result.is_empty() {
+                        RESPMessage::Null
+                    } else {
+                        RESPMessage::Array(result)
+                    } */
+                    
                 }
                 _ => RESPMessage::Error("Error".to_string()),
             };

@@ -56,6 +56,14 @@ impl Cache {
             None
         }
     }
+    pub fn get_key(&mut self) -> Vec<String> {
+
+        let mut result: Vec<String> = vec![];
+        for (k, entry) in self.cache.iter_mut() {
+                result.push(k.to_string());
+            }
+            result
+        }
 
     pub fn set(&mut self, key: String, value: String, ttl: Option<u64>) -> Option<String> {
         self.update_aging(&key);
