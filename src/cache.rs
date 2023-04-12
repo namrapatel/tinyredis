@@ -8,8 +8,10 @@ pub fn now() -> u128 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis()
-}
+
+
 #[derive(Debug)]
+
 struct Entry {
     value: String,
     ttl: Option<u64>,
@@ -22,7 +24,6 @@ pub struct Cache {
     cache: HashMap<String, Entry>,
     maximum: usize,
 }
-
 impl Cache {
     pub fn new(maximum: usize) -> Self {
         Self {
@@ -56,6 +57,18 @@ impl Cache {
             None
         }
     }
+    pub fn get_key(&mut self) -> (Vec<String>, Vec<String>) {
+
+        let mut keys: Vec<String> = vec![];
+        let mut vals: Vec<String> = vec![];
+        for (k, entry) in self.cache.iter_mut() {
+                keys.push(k.to_string());
+                vals.push(entry.value.to_string());
+                
+                
+            }
+            (keys, vals)
+        }
 
     pub fn set(&mut self, key: String, value: String, ttl: Option<u64>) -> Option<String> {
         println!("\n{:?}\n", "Keys Before");

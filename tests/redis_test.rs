@@ -235,3 +235,46 @@ fn it_can_handle_lru() {
         "\"Response type not string compatible.\" (response was nil)"
     );
 }
+
+#[test]
+fn it_can_set_on_start() {
+    let client = Client::open("redis://127.0.0.1/").unwrap();
+    let mut con = client.get_connection().unwrap();
+
+    let _ = redis::cmd("SET")
+        .arg("key1")
+        .arg("apple")
+        .arg("PX")
+        .arg(1000)
+        .query::<String>(&mut con)
+        .unwrap();
+    let _ = redis::cmd("SET")
+        .arg("key2")
+        .arg("orange")
+        .arg("PX")
+        .arg(1000)
+        .query::<String>(&mut con)
+        .unwrap();
+    let _ = redis::cmd("SET")
+        .arg("key3")
+        .arg("bannana")
+        .arg("PX")
+        .arg(1000)
+        .query::<String>(&mut con)
+        .unwrap();
+/* 
+    let value: String = redis::cmd("GET").arg("key-ttl").query(&mut con).unwrap();
+    assert_eq!(value, "value");
+
+    sleep(Duration::from_millis(2000));
+
+    let err = redis::cmd("GET")
+        .arg("key-ttl")
+        .query::<String>(&mut con)
+        .unwrap_err();
+    assert_eq!(
+        err.detail().unwrap(),
+        "\"Response type not string compatible.\" (response was nil)"
+    );
+    */
+}
