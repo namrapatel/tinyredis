@@ -5,7 +5,6 @@ use crate::{
 };
 use anyhow::{Error, Result};
 use rand::Rng;
-use redis::Client;
 use std::env;
 use std::net::SocketAddr;
 use std::process::{Command, Stdio};
@@ -42,6 +41,7 @@ impl Server {
         //gets keys and values from command line
         let mut keys: Vec<String> = Vec::new(); //list of keys
         let mut values: Vec<String> = Vec::new(); //list of values
+        /* 
         for (index, value) in args.iter().enumerate() {
             // iterate over the vector and get a tuple with the index and value of each element
             if index >= 2 && index % 2 == 0 {
@@ -53,20 +53,12 @@ impl Server {
                 println!("{:?}", values)
             }
         }
-
+        */
         let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).await?;
         let cache = Arc::new(Mutex::new(Cache::new(CACHE_SIZE)));
 
         if PORT == "6379" {
             println!("Master Server Started");
-
-            let _ = redis::cmd("SET")
-                .arg("key-ttl")
-                .arg("value")
-                .arg("PX")
-                .arg(1000)
-                .query::<String>(&mut con)
-                .unwrap();
 
             let length = 10; //set length of replication ID
 
@@ -112,9 +104,38 @@ impl Server {
                         if bytes_read == 0 {
                             println!("No data received from master");
                         } else {
+                            println!("Received response from master");
+                            let mut cache = cache.lock().unwrap();
+                            
                             // Deserialize the received bytes into a RESPMessage
                             let (response, _) = RESPMessage::deserialize(&buffer);
-                            println!("Received response: {:?}", response);
+
+                            let response_str =  response.pack_string();
+
+                            let result = response_str
+                                .map(|value| value.to_string())
+                                .unwrap_or_else(|err| format!("Error: {:?}", err));
+
+                            println!("SD {:?}", result);
+
+                            let response_array: Vec<&str> = result.split(" ").collect();
+
+                            for i in 0..response_array.len()/2 {
+                                if i ==0 {
+                                    cache.set(response_array[i].to_string() , response_array[3].to_string(),Some(1000));
+
+
+                                }else{
+                                    cache.set(response_array[i].to_string() , response_array[i*2].to_string(), Some(1000));
+
+                                }
+                            }
+
+                            let save = cache.get_key();
+                            println!("Saved Values in Replica are: {:?}", save);
+
+
+                            
                         }
                     }
                     Err(e) => println!("Error: {}", e),
@@ -306,9 +327,22 @@ impl Server {
                     //let mut result = Vec::new();
                     println!("TEST");
                     // Acquire the lock on the cache and retrieve all keys
-                    let cache = cache.lock().unwrap().get_key();
-                    println!("{:?}", cache);
-                    RESPMessage::BulkString("PING".to_string())
+                    let mut resp = cache.lock().unwrap().get_key(); //get keys and values from cache 
+                    let (mut cache_k, cache_v) = resp; //returns to arrays 
+                    
+                    println!("Re {:?}, {:?}", cache_k, cache_v);
+
+                    cache_k.extend(cache_v); //combine to 1 array 
+                    let  mut joined_str = String::new();
+                    
+                    for i in 0..cache_k.len() {
+                        println!("SEND");
+                        joined_str = cache_k.join(" ");
+                        RESPMessage::SimpleString(cache_k[i].to_string());
+                    }
+                    
+                    RESPMessage::BulkString(joined_str)
+                    //RESPMessage::Array(vec! [cache_k]);
                     //let mut result: Vec<String> = vec![];
 
                     //GET keys here
