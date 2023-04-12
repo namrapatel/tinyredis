@@ -8,10 +8,9 @@ pub fn now() -> u128 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis()
-
+}
 
 #[derive(Debug)]
-
 struct Entry {
     value: String,
     ttl: Option<u64>,
