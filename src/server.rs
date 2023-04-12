@@ -9,6 +9,9 @@ use std::env;
 use std::net::SocketAddr;
 use std::process::{Command, Stdio};
 use std::thread;
+
+use std::net::{IpAddr, Ipv4Addr};
+
 use std::{
     collections::btree_map::Keys,
     io::{Read, Write},
@@ -30,6 +33,7 @@ pub struct Server {
     cache: Arc<Mutex<Cache>>,
 }
 
+//TODO, create a list of servers that connecto master, ping them all to see if alive, if yes add to a list. Send set to each item ont he list
 impl Server {
     // Use cargo run <PORT> when starting the server
     // cargo run 6379 key_1 Apple key_2 Orange key_3 Banana
@@ -41,19 +45,8 @@ impl Server {
         //gets keys and values from command line
         let mut keys: Vec<String> = Vec::new(); //list of keys
         let mut values: Vec<String> = Vec::new(); //list of values
-        /* 
-        for (index, value) in args.iter().enumerate() {
-            // iterate over the vector and get a tuple with the index and value of each element
-            if index >= 2 && index % 2 == 0 {
-                // check if the index is greater than or equal to 2 (i.e. skip the first two arguments, which are the program name and the first argument)
-                keys.push(value.clone()); // add the value to the new list
-                println!("{:?}", keys)
-            } else if index > 2 && index % 2 != 0 {
-                values.push(value.clone());
-                println!("{:?}", values)
-            }
-        }
-        */
+                                           
+                                                
         let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).await?;
         let cache = Arc::new(Mutex::new(Cache::new(CACHE_SIZE)));
 
@@ -106,36 +99,41 @@ impl Server {
                         } else {
                             println!("Received response from master");
                             let mut cache = cache.lock().unwrap();
-                            
+
                             // Deserialize the received bytes into a RESPMessage
-                            let (response, _) = RESPMessage::deserialize(&buffer);
+                            let (response, _) = RESPMessage::deserialize(&buffer); //read response
 
-                            let response_str =  response.pack_string();
+                            let response_str = response.pack_string(); //convert from RESP to string
 
+                            //remove from result
                             let result = response_str
                                 .map(|value| value.to_string())
                                 .unwrap_or_else(|err| format!("Error: {:?}", err));
 
                             println!("SD {:?}", result);
 
-                            let response_array: Vec<&str> = result.split(" ").collect();
+                            let response_array: Vec<&str> = result.split(" ").collect(); //convert string to array
 
-                            for i in 0..response_array.len()/2 {
-                                if i ==0 {
-                                    cache.set(response_array[i].to_string() , response_array[3].to_string(),Some(1000));
-
-
-                                }else{
-                                    cache.set(response_array[i].to_string() , response_array[i*2].to_string(), Some(1000));
-
+                            for i in 0..response_array.len() / 2 {
+                                //loop array
+                                if i == 0 {
+                                    cache.set(
+                                        response_array[i].to_string(),
+                                        response_array[3].to_string(),
+                                        Some(1000),
+                                    ); //set to cache
+                                } else {
+                                    cache.set(
+                                        response_array[i].to_string(),
+                                        response_array[i * 2].to_string(),
+                                        Some(1000),
+                                    );
                                 }
                             }
 
                             let save = cache.get_key();
                             println!("Saved Values in Replica are: {:?}", save);
-
-
-                            
+                            println!("SYNC complete");
                         }
                     }
                     Err(e) => println!("Error: {}", e),
@@ -149,10 +147,62 @@ impl Server {
         Ok(Self { listener, cache })
     }
 
-    pub async fn send_set(key: String, value: String, mut stream: TcpStream) -> Result<()> {
+    pub async fn forward(&self) -> Result<&Self, Error> {
+        let mut ports = vec![
+            "6380", "6381", "6382", "6383", "6384", "6385", "6386", "6387", "6388", "6389",
+        ];
+
+        for i in 0..ports.len() {
+            let ip_address = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+            let mut port = ports[i].parse::<u16>().unwrap();
+            let server_address = SocketAddr::new(ip_address, port);
+
+            let mut stream = TcpStream::connect(server_address).await?;
+            let mut buffer = [0; MESSAGE_SIZE];
+
+            let bulk_message: RESPMessage = RESPMessage::BulkString("PING".to_string());
+
+            let array = RESPMessage::Array(vec![bulk_message]);
+
+            let serialized = array.serialize();
+
+            match stream.write_all(&serialized).await {
+                Ok(_) => {}
+                Err(e) => println!("Error: {}", e),
+                _ => println!("Default"),
+            }
+
+            let mut active_ports: Vec<u16> = Vec::new();
+            // Read data from the stream into the buffer
+            let timeout_duration = Duration::from_secs(5);
+            match timeout(timeout_duration, stream.read(&mut buffer)).await {
+                Ok(result) => match result {
+                    Ok(bytes_read) => {
+                        if bytes_read == 0 {
+                            //println!("No data received from master");
+                            return Err(anyhow::Error::msg("No data received from master"));
+                        } else {
+                            // Deserialize the received bytes into a RESPMessage
+                            let (response, _) = RESPMessage::deserialize(&buffer);
+                            println!("Received response: {:?}", response);
+                            return Ok(self);
+                        }
+                    }
+                    Err(e) => {
+                        return Err(e.into());
+                    }
+                },
+                Err(_) => {
+                    return Err(anyhow::Error::msg("timeout occured"));
+                }
+            }
+        }
+
+        let server_addr = SocketAddr::from(([127, 0, 0, 1], 6379)); // connect to the master server
+        let mut stream = TcpStream::connect(server_addr).await?;
         let mut buffer = [0; MESSAGE_SIZE];
 
-        let bulk_message: RESPMessage = RESPMessage::BulkString("SET".to_string());
+        let bulk_message: RESPMessage = RESPMessage::BulkString("SYNC".to_string());
 
         let array = RESPMessage::Array(vec![bulk_message]);
 
@@ -176,7 +226,7 @@ impl Server {
                         // Deserialize the received bytes into a RESPMessage
                         let (response, _) = RESPMessage::deserialize(&buffer);
                         println!("Received response: {:?}", response);
-                        Ok(())
+                        Ok(self)
                     }
                 }
                 Err(e) => {
@@ -189,6 +239,7 @@ impl Server {
         }
     }
 
+    
     pub async fn run(server: Server) -> Result<()> {
         println!("PROCESS_ID: {}", std::process::id());
         let args: Vec<String> = env::args().collect();
@@ -227,6 +278,9 @@ impl Server {
                     tokio::spawn(async move {
                         Self::handle_connection(&mut stream, cache).await.unwrap();
                     });
+
+
+
                 }
                 Err(e) => {
                     println!("Error: {e}");
@@ -237,7 +291,7 @@ impl Server {
 
     async fn handle_connection(stream: &mut TcpStream, cache: Arc<Mutex<Cache>>) -> Result<()> {
         let mut buffer = [0; MESSAGE_SIZE];
-
+      
         loop {
             let bytes_read = stream.read(&mut buffer).await?;
             if bytes_read == 0 {
@@ -248,6 +302,8 @@ impl Server {
             let (message, _) = RESPMessage::deserialize(&buffer);
 
             let (command, args) = message.to_command()?;
+
+
             let response = match command.to_ascii_lowercase().as_ref() {
                 "ping" => RESPMessage::SimpleString("PONG".to_string()),
                 "echo" => args.first().unwrap().clone(),
@@ -266,7 +322,7 @@ impl Server {
                     let key = args.get(0).map(|arg| arg.pack_string());
                     let value = args.get(1).map(|arg| arg.pack_string());
                     let px = args.get(3).map(|arg| arg.pack_string());
-
+                    let f = self.forward();
                     match (key, value) {
                         (Some(Ok(key)), Some(Ok(value))) => {
                             let result: Result<(), ()> = match px {
@@ -275,6 +331,9 @@ impl Server {
                                     let mut cache = cache.lock().unwrap();
                                     let set_result =
                                         cache.set(key.to_string(), value.to_string(), ttl);
+                                    
+                                    
+                                    Self::forward();
 
                                     match set_result {
                                         Some(_) => Ok(()),
@@ -327,39 +386,21 @@ impl Server {
                     //let mut result = Vec::new();
                     println!("TEST");
                     // Acquire the lock on the cache and retrieve all keys
-                    let mut resp = cache.lock().unwrap().get_key(); //get keys and values from cache 
-                    let (mut cache_k, cache_v) = resp; //returns to arrays 
-                    
+                    let mut resp = cache.lock().unwrap().get_key(); //get keys and values from cache
+                    let (mut cache_k, cache_v) = resp; //returns to arrays
+
                     println!("Re {:?}, {:?}", cache_k, cache_v);
 
-                    cache_k.extend(cache_v); //combine to 1 array 
-                    let  mut joined_str = String::new();
-                    
+                    cache_k.extend(cache_v); //combine to 1 array
+                    let mut joined_str = String::new();
+
                     for i in 0..cache_k.len() {
                         println!("SEND");
                         joined_str = cache_k.join(" ");
                         RESPMessage::SimpleString(cache_k[i].to_string());
                     }
-                    
-                    RESPMessage::BulkString(joined_str)
-                    //RESPMessage::Array(vec! [cache_k]);
-                    //let mut result: Vec<String> = vec![];
 
-                    //GET keys here
-                    /*
-                    // Iterate through all keys and retrieve their values
-                    for key in keys {
-                        if let Some(value) = cache.get(key) {
-                            result.push(RESPMessage::BulkString(key.to_string()));
-                            result.push(RESPMessage::BulkString(value.clone()));
-                        }
-                    }
-                    // Return a RESPMessage::Array containing all key-value pairs
-                    if result.is_empty() {
-                        RESPMessage::Null
-                    } else {
-                        RESPMessage::Array(result)
-                    } */
+                    RESPMessage::BulkString(joined_str)
                 }
                 _ => RESPMessage::Error("Error".to_string()),
             };

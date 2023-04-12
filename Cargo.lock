@@ -210,6 +210,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "netstat"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48b71f6e2443299ba97e8c834edcd4724be71da3a751b1be75d8b67022801bf3"
+dependencies = [
+ "bitflags",
+ "libc",
+]
+
+[[package]]
 name = "num_cpus"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -472,6 +482,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "ctor",
+ "netstat",
  "rand",
  "redis",
  "regex",
