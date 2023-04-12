@@ -1,12 +1,13 @@
 use anyhow::{Result, Error};
 use crate::{resp::RESPMessage, cache::{Cache, self}, simpleElection::{*, self}};
 use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
-use std::{sync::{Arc, Mutex}, process};
+use std::{sync::{Arc, Mutex}, process, io::{Write, Read}};
 use std::env;
 use std::thread;
 use std::process::{Command, Stdio};
 use rand::Rng;
 use std::net::SocketAddr;
+use std::net::{TcpStream as SyncTcpStream};
 
 
 const MESSAGE_SIZE: usize = 512;
@@ -21,7 +22,7 @@ impl Server {
     // Use cargo run <PORT> when starting the server 
     pub async fn new() -> Result<Self, Error> {
     
-       //get arguments from command line ie. port numbers 
+        // get arguments from command line ie. port numbers 
         let args: Vec<String> = env::args().collect();
         let PORT = &args[1];
 
@@ -40,13 +41,11 @@ impl Server {
                 .map(|i| charset.chars().nth(i).unwrap())
                 .collect();
 
-
-
-        }else{
+        } else {
             println!("Replication Server Started");
             let server_addr = SocketAddr::from(([127, 0, 0, 1], 6379)); // connect to the master server 
-            let mut stream = TcpStream::connect(server_addr).await?;
-            let stream_result = TcpStream::connect(server_addr).await;
+            let mut stream = SyncTcpStream::connect(server_addr)?;
+            let stream_result = SyncTcpStream::connect(server_addr);
             //check if connection to Master was succesful 
             if let Ok(stream) = stream_result {
                 println!("Successfully connected to server!");
@@ -69,8 +68,9 @@ impl Server {
                 Err(e) => println!("Error: {}", e),
                 _ => println!("Default"),
             }
+
             let mut response = String::new();
-            match stream.read_to_string(&mut response).await {
+            match stream.read_to_string(&mut response) {
                 Ok(_) => println!("DONE{}", response),
                 Err(e) => {},
                 _ => println!("Default case"),
