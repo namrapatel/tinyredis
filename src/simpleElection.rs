@@ -113,7 +113,12 @@ fn send_get_server_id_message(port: String) -> String {
 // send message to notify a backup it shuld become the leader
 fn send_set_leader_message(port: String) -> String {
     let addr = "localhost:".to_string() + "" + &port;
-    let mut stream = TcpStream::connect(addr).unwrap();
+    let mut stream = match TcpStream::connect(addr) {
+        Ok(stream) => stream,
+        Err(e) => {
+            return e.to_string();
+        }
+    };
 
     stream.set_read_timeout(Some(Duration::from_secs(1)));
 
